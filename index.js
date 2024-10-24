@@ -1,12 +1,10 @@
 let arrayLength = 0;
-let startIndex = 0;
-let endIndex = 0;
-let maxIndex = 0;
 let currentPage = 1;
 let usersPerPage = 10;
 let membersData = [];
 let filteredData = [];
 const url = "https://67176b50b910c6a6e0280cca.mockapi.io/members/";
+let isSearchEvent = false;
 
 (newMemberAddBtn = document.querySelector(".addMemberBtn")),
   (darkBg = document.querySelector(".dark_bg")),
@@ -22,35 +20,47 @@ const url = "https://67176b50b910c6a6e0280cca.mockapi.io/members/";
   (inputSearch = document.querySelector("#search"))
 
 /* -------------------------- Lấy API và xử lí trang -------------------------- */
-async function fetchData() {
+async function totalData() {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`${url}`, {
       method: "GET",
     });
-    membersData = await res.json(); // Lưu dữ liệu vào biến toàn cục
-    filteredData = [...membersData];
+    const totalData = await res.json();
 
-    chiaBang();
-    renderMembers();
-    showEntries();
+    membersData = totalData;
+    arrayLength = [...membersData];
+
+    updatePagination(usersPerPage);
   } catch (err) {
     console.log(err);
   }
 }
 
-// Hiển thị dữ liệu lên bảng
+async function fetchData(page = 1, limit = 10) {
+  try {
+    const res = await fetch(`${url}?page=${page}&limit=${limit}`, {
+      method: "GET",
+    });
+    const data = await res.json();
+
+    membersData = data;
+    filteredData = [...membersData];
+
+    renderMembers();
+    showPagination();
+  } catch (err) {
+    console.log(err);
+  }
+}
+
 function renderMembers() {
   let htmlString = "";
-  const currentData = filteredData.slice(startIndex, endIndex);
-
-  for (let i = 0; i < currentData.length; i++) {
-    let content = currentData[i];
+  for (let i = 0; i < filteredData.length; i++) {
+    let content = filteredData[i];
     htmlString += `
       <tr>
         <td>${content.id}</td>
-        <td><img src="${
-          content.Avatar
-        }" alt="Profile Picture" width="40" height="40"></td>
+        <td><img src="${content.Avatar}" alt="Profile Picture" width="40" height="40"></td>
         <td>${content.FirstName} ${content.LastName}</td>
         <td>${content.Age}</td>
         <td>${content.City}</td>
@@ -60,123 +70,129 @@ function renderMembers() {
         <td class="hidden-text" onclick="toggleText(this)">${content.Email}</td>
         <td class="hidden-text" onclick="toggleText(this)">${content.Phone}</td>
         <td>
-          <button onclick="readMember(${
-            content.id
-          })"><i class="fa-regular fa-eye"></i></button>
-          <button onclick="editMember(${
-            content.id
-          })"><i class="fa-regular fa-pen-to-square"></i></button>
-          <button onclick="deleteMember(${
-            content.id
-          })"><i class="fa-regular fa-trash-can"></i></button>
+          <button onclick="readMember(${content.id})"><i class="fa-regular fa-eye"></i></button>
+          <button onclick="editMember(${content.id})"><i class="fa-regular fa-pen-to-square"></i></button>
+          <button onclick="deleteMember(${content.id})"><i class="fa-regular fa-trash-can"></i></button>
         </td>
       </tr>
     `;
   }
   document.querySelector("#userInfo").innerHTML = htmlString;
-  updatePagination(); // Cập nhật số trang
   showPagination();
 }
 
-// chiaBang
-function chiaBang() {
-  arrayLength = filteredData.length;
-  maxIndex = Math.ceil(arrayLength / usersPerPage);
-  setPagination(1);
-}
-
-// Thiết lập phân trang
-function setPagination(page) {
-  currentPage = page;
-  startIndex = (currentPage - 1) * usersPerPage;
-  endIndex = startIndex + usersPerPage;
-  renderMembers();
-}
-
-// show entries tren seclection (góc trên trái)
-function showEntries() {
-  const dropdown = document.getElementById("table_size");
-  dropdown.value = usersPerPage; // Đặt giá trị mặc định cho dropdown
-
-  dropdown.addEventListener("change", function () {
-    usersPerPage = parseInt(this.value); // Cập nhật số lượng mục mỗi trang
-    chiaBang();
-    setPagination(1);
-  });
-}
-
-// Cập nhật nút phân trang (góc dưới phải)
-function updatePagination() {
-  let paginationHTML = "";
-
-  paginationHTML += `<button onclick="prevPage()" ${
-    currentPage === 1 ? "disabled" : ""
-  }>Previous</button>`;
-
-  for (let i = 1; i <= maxIndex; i++) {
-    paginationHTML += `<button onclick="setPagination(${i})" ${
-      currentPage === i ? "class='active'" : ""
-    }>${i}</button>`;
-  }
-
-  paginationHTML += `<button onclick="nextPage()" ${
-    currentPage === maxIndex ? "disabled" : ""
-  }>Next</button>`;
-
-  document.querySelector(".pagination").innerHTML = paginationHTML;
-}
-
-// show thông tin các menber ở trang nào (góc dưới trái)
 function showPagination() {
-  const totalEntries = filteredData.length;
-  const displayedEntries = Math.min(endIndex, totalEntries);
-  const showEntriesHTML = `Showing ${
-    startIndex + 1
-  } to ${displayedEntries} of ${totalEntries} entries`;
-
+  let length = arrayLength.length;
+  const totalEntries = length || filteredData.length;
+  const displayedEntries = Math.min(currentPage * usersPerPage, totalEntries);
+  const showEntriesHTML = `Showing ${(currentPage - 1) * usersPerPage + 1} to ${displayedEntries} of ${totalEntries} entries`;
   document.querySelector(".showPagination").innerHTML = showEntriesHTML;
 }
 
+function updatePagination(usersPerPage) {
+  let length;
+  let paginationHTML = ""
+
+  if (isSearchEvent) { 
+    length = filteredData.length;
+  } else {
+    length = arrayLength.length;
+  }
+
+  const totalPages = Math.ceil(length / usersPerPage);
+
+  paginationHTML += `<button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>`;
+
+  for (let i = 1; i <= totalPages; i++) {
+    paginationHTML += `<button onclick="setPagination(${i})" class="${currentPage === i ? 'active' : ''}">${i}</button>`;
+  }
+
+  paginationHTML += `<button onclick="nextPage()" ${currentPage === totalPages ? "disabled" : ""}>Next</button>`;
+  document.querySelector(".pagination").innerHTML = paginationHTML;
+}
+
+function setPagination(page) {
+  currentPage = page;
+  fetchData(currentPage, usersPerPage);
+  updateActivePage();
+}
+
 function nextPage() {
-  if (currentPage < maxIndex) {
-    setPagination(currentPage + 1);
+  const totalPages = Math.ceil(arrayLength.length / usersPerPage);
+  if (currentPage < totalPages) {
+    currentPage++;
+    fetchData(currentPage, usersPerPage);
+    updateActivePage();
   }
 }
 
 function prevPage() {
   if (currentPage > 1) {
-    setPagination(currentPage - 1);
+    currentPage--;
+    fetchData(currentPage, usersPerPage);
+    updateActivePage();
   }
 }
+
+function updateActivePage() {
+  const buttons = document.querySelectorAll(".pagination button");
+  buttons.forEach((button) => button.classList.remove("active"));
+  
+  buttons.forEach((button) => {
+    if (button.textContent == currentPage) {
+      button.classList.add("active");
+    }
+  });
+}
+
+document.getElementById("table_size").addEventListener("change", function () {
+  isSearchEvent = false;
+  usersPerPage = parseInt(this.value);
+  setPagination(1);
+  updatePagination(usersPerPage);
+});
+
+totalData()
 
 /* -------------------------- Search -------------------------- */
 inputSearch.addEventListener("input", () => {
   const searchTerm = inputSearch.value.toLowerCase().trim();
 
+  const newUrl = `${window.location.origin}${window.location.pathname}?search=${searchTerm}`;
+  history.pushState({ search: searchTerm }, '', newUrl);
+
   if (searchTerm !== "") {
-    fetch(`${url}`)
-      .then((res) => res.json())
+    fetch(`${url}?search=${searchTerm}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Network response was not ok");
+        }
+        return res.json();
+      })
       .then((data) => {
-        // Lọc dữ liệu dựa trên searchTerm
-        filteredData = data.filter((member) =>
-          member.FirstName.toLowerCase().includes(searchTerm) ||
-          member.LastName.toLowerCase().includes(searchTerm) ||
-          member.City.toLowerCase().includes(searchTerm) ||
-          member.Position.toLowerCase().includes(searchTerm)
-        );
-        // console.log(filteredData);
-        chiaBang();
-        renderMembers();
+
+        if (filteredData.length === 0) {
+          fetchData(currentPage, usersPerPage);
+        } else {
+          filteredData = data;
+          renderMembers();
+          isSearchEvent = true;
+          updatePagination(usersPerPage);
+        }
       })
       .catch((error) => {
         console.error("Error fetching filtered data:", error);
+        renderEmptyState();
       });
   } else {
-    filteredData = [...membersData];
-    chiaBang();
-    renderMembers();
+    fetchData(currentPage, usersPerPage);
   }
 });
+
+function renderEmptyState() {
+  const membersContainer = document.getElementById("userInfo");
+  membersContainer.innerHTML = '<p style="color: #fff">No results found.</p>';
+}
 
 /* -------------------------- CRUD -------------------------- */
 newMemberAddBtn.addEventListener("click", () => {
@@ -185,11 +201,11 @@ newMemberAddBtn.addEventListener("click", () => {
   submitBtn.innerHTML = "Submit";
   modalTitle.innerHTML = "Fill the Form";
   popupFooter.style.display = "block";
-  imgInput.src = "./img/pic1.png"; // Đặt lại hình ảnh mặc định
+  imgInput.src = "./img/pic1.png";
   darkBg.classList.add("active");
   popupForm.classList.add("active");
   formInputFields.forEach((input) => {
-    input.value = ""; // Đặt lại các trường input
+    input.value = ""; 
     input.disabled = false;
   });
   submitBtn.style.display = "block";
@@ -203,7 +219,6 @@ crossBtn.addEventListener("click", () => {
 
 /* -------------------------- Add Members -------------------------- */
 async function addMembers() {
-  // Get the uploaded file name
   let avatarUrl = "";
 
   const firstName = document.getElementById("fName").value;
@@ -217,9 +232,9 @@ async function addMembers() {
   const phone = document.getElementById("phone").value;
 
   if (uploadimg.files.length > 0) {
-    const fileName = uploadimg.files[0].name; // Get the uploaded file name
+    const fileName = uploadimg.files[0].name;
     // const nameWithoutExt = fileName.split(".").slice(0, -1).join(""); // Remove extension
-    avatarUrl = `https://loremflickr.com/640/480/${fileName}`; // Construct the URL without extension
+    avatarUrl = `https://loremflickr.com/640/480/${fileName}`;
   }
 
   const newMember = {
@@ -250,7 +265,7 @@ async function addMembers() {
         alert("Member updated successfully!");
         darkBg.classList.remove("active");
         popupForm.classList.remove("active");
-        fetchData(); // Refresh data
+        fetchData(currentPage, usersPerPage);
       } else {
         throw new Error("Failed to update member");
       }
@@ -269,7 +284,7 @@ async function addMembers() {
         alert("Member added successfully!");
         darkBg.classList.remove("active");
         popupForm.classList.remove("active");
-        fetchData(); // Refresh data
+        fetchData(currentPage, usersPerPage);
       } else {
         throw new Error("Failed to add member");
       }
@@ -408,7 +423,7 @@ async function deleteMember(id) {
 
       if (res.ok) {
         alert("Member deleted successfully!");
-        fetchData(); // Refresh data after deletion
+        fetchData(currentPage, usersPerPage);
       } else {
         throw new Error("Failed to delete member");
       }
