@@ -19,6 +19,7 @@ const url = "https://67176b50b910c6a6e0280cca.mockapi.io/members/";
   (imgHolder = document.querySelector(".imgholder")),
   (uploadimg = document.querySelector("#uploadimg")),
   (formInputFields = document.querySelectorAll("form input"));
+  (inputSearch = document.querySelector("#search"))
 
 /* -------------------------- Lấy API và xử lí trang -------------------------- */
 async function fetchData() {
@@ -149,24 +150,33 @@ function prevPage() {
 }
 
 /* -------------------------- Search -------------------------- */
-// Tìm kiếm thành viên
-function searchMembers() {
-  const searchValue = document.getElementById("search").value.toLowerCase(); // Lấy giá trị tìm kiếm
-  filteredData = membersData.filter((member) => {
-    return (
-      `${member.FirstName} ${member.LastName}`
-        .toLowerCase()
-        .includes(searchValue) ||
-      member.City.toLowerCase().includes(searchValue) ||
-      member.Position.toLowerCase().includes(searchValue)
-    );
-  });
+inputSearch.addEventListener("input", () => {
+  const searchTerm = inputSearch.value.toLowerCase().trim();
 
-  chiaBang();
-  renderMembers();
-}
-
-document.getElementById("search").addEventListener("input", searchMembers);
+  if (searchTerm !== "") {
+    fetch(`${url}`)
+      .then((res) => res.json())
+      .then((data) => {
+        // Lọc dữ liệu dựa trên searchTerm
+        filteredData = data.filter((member) =>
+          member.FirstName.toLowerCase().includes(searchTerm) ||
+          member.LastName.toLowerCase().includes(searchTerm) ||
+          member.City.toLowerCase().includes(searchTerm) ||
+          member.Position.toLowerCase().includes(searchTerm)
+        );
+        // console.log(filteredData);
+        chiaBang();
+        renderMembers();
+      })
+      .catch((error) => {
+        console.error("Error fetching filtered data:", error);
+      });
+  } else {
+    filteredData = [...membersData];
+    chiaBang();
+    renderMembers();
+  }
+});
 
 /* -------------------------- CRUD -------------------------- */
 newMemberAddBtn.addEventListener("click", () => {
@@ -409,6 +419,4 @@ async function deleteMember(id) {
   }
 }
 
-window.onload = function () {
-  fetchData(); // Gọi hàm khởi động
-};
+fetchData();
